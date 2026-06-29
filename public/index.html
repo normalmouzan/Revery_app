@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <title>Revery-app</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 🔔 Notification Toast -->
+  <div class="notification" id="notification">
+    <span class="notif-icon">🔔</span>
+    <span id="notifText">رسالة جديدة!</span>
+  </div>
+
+  <!-- 🌙 Theme Toggle Button -->
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+
+  <!-- 🔐 Login Screen -->
+  <div class="auth-screen" id="loginScreen">
+    <div class="auth-box">
+      <h2>🔐 تسجيل الدخول</h2>
+      <input type="text" id="loginUser" placeholder="اسم المستخدم أو الـ ID">
+      <input type="password" id="loginPass" placeholder="كلمة المرور">
+      <button onclick="login()">دخول</button>
+      <div class="auth-toggle">ليس لديك حساب؟ <span onclick="showRegister()">سجل الآن</span></div>
+    </div>
+  </div>
+
+  <!-- 📝 Register Screen -->
+  <div class="auth-screen" id="registerScreen" style="display: none;">
+    <div class="auth-box">
+      <h2>📝 إنشاء حساب</h2>
+      <input type="text" id="regUsername" placeholder="اسم المستخدم (بالإنجليزي)">
+      <input type="text" id="regName" placeholder="الاسم المستعار">
+      <input type="password" id="regPass" placeholder="كلمة المرور">
+      <input type="password" id="regPass2" placeholder="تأكيد كلمة المرور">
+      <button onclick="register()">تسجيل</button>
+      <div class="auth-toggle">لديك حساب بالفعل؟ <span onclick="showLogin()">سجل دخول</span></div>
+    </div>
+  </div>
+
+  <!-- ➕ Add Friend Modal -->
+  <div class="modal" id="addFriendModal">
+    <div class="modal-box">
+      <h3>➕ إضافة صديق</h3>
+      <div class="setting-item">
+        <label>🔍 أدخل الـ ID الخاص بالمستخدم (أرقام فقط)</label>
+        <input type="text" id="friendIdInput" placeholder="مثال: 89122">
+      </div>
+      <button class="modal-btn" onclick="searchFriend()">🔍 بحث</button>
+      <div id="searchResult" style="display:none; align-items:center; gap:15px; margin:15px 0; background:#000; padding:10px; border-radius:8px;">
+        <img id="searchAvatar" src="" class="chat-avatar">
+        <div style="flex:1;"><div id="searchName" style="font-weight:bold;"></div><div id="searchId" style="color:#888;font-size:12px;"></div></div>
+        <button class="modal-btn" style="width:auto; padding:5px 15px; margin:0;" onclick="addFriend()">إضافة</button>
+      </div>
+      <button class="modal-btn secondary" onclick="closeModal('addFriendModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- 🔍 Search Group Modal -->
+  <div class="modal" id="searchGroupModal">
+    <div class="modal-box">
+      <h3>🔍 البحث عن مجموعة</h3>
+      <div class="setting-item">
+        <label>أدخل معرف المجموعة المميز (7 أرقام)</label>
+        <input type="text" id="groupIdSearchInput" placeholder="مثال: 1234567">
+      </div>
+      <button class="modal-btn" onclick="searchGroupById()">🔍 ابحث عن الجروب</button>
+      <div id="groupSearchResult" style="display:none; align-items:center; gap:15px; margin:15px 0; background:#000; padding:10px; border-radius:8px;">
+        <img id="searchGroupAvatar" src="" class="chat-avatar">
+        <div style="flex:1;"><div id="searchGroupName" style="font-weight:bold;"></div><div id="searchGroupId" style="color:#888;font-size:12px;"></div></div>
+        <button class="modal-btn" style="width:auto; padding:5px 15px; margin:0;" id="joinGroupBtn" onclick="joinSearchedGroup()">انضمام</button>
+      </div>
+      <button class="modal-btn secondary" onclick="closeModal('searchGroupModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- 👥 Create Group Modal -->
+  <div class="modal" id="createGroupModal">
+    <div class="modal-box">
+      <h3>👥 إنشاء مجموعة جديدة</h3>
+      <div class="upload-preview">
+        <img id="groupCreateImgPreview" src="https://cdn-icons-png.flaticon.com/512/32/32441.png">
+        <label class="file-label">
+          📸 اختر صورة المجموعة من جهازك
+          <input type="file" id="groupCreateFile" accept="image/*" style="display:none;" onchange="previewImage(this, 'groupCreateImgPreview')">
+        </label>
+      </div>
+      <div class="setting-item"><label>اسم المجموعة</label><input type="text" id="groupNameInput" placeholder="اسم الجروب"></div>
+      <div class="setting-item"><label>وصف المجموعة</label><input type="text" id="groupDescInput" placeholder="اكتب نبذة عن المجموعة"></div>
+      <button class="modal-btn" onclick="submitCreateGroup()">🚀 إنشاء الجروب</button>
+      <button class="modal-btn secondary" onclick="closeModal('createGroupModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- ➕ Add Member to Group Modal -->
+  <div class="modal" id="addMemberToGroupModal">
+    <div class="modal-box">
+      <h3>➕ إضافة عضو للمجموعة</h3>
+      <div class="setting-item">
+        <label>أدخل معرف العضو (ID مكون من 5 أرقام)</label>
+        <input type="text" id="newMemberIdInput" placeholder="مثال: 54621">
+      </div>
+      <button class="modal-btn" onclick="submitAddMemberToGroup()">إضافة مباشرة</button>
+      <button class="modal-btn secondary" onclick="closeModal('addMemberToGroupModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- ⚙️ Settings Modal -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-box">
+      <h3>⚙️ الإعدادات الشخصية</h3>
+      <div class="upload-preview">
+        <img id="profileImgPreview" src="">
+        <label class="file-label">
+          📸 اختر صورتك الشخصية
+          <input type="file" id="profileFile" accept="image/*" style="display:none;" onchange="previewImage(this, 'profileImgPreview')">
+        </label>
+      </div>
+      <div class="setting-item"><label>الاسم المستعار الجديد</label><input type="text" id="settingsName"></div>
+      <div class="setting-item">
+        <label>🔔 إشعارات المتصفح</label>
+        <button class="modal-btn" style="margin-top:5px;" id="notifToggleBtn" onclick="togglePushNotifications()">🔔 تفعيل الإشعارات</button>
+      </div>
+      <div class="setting-item">
+        <label>🔊 صوت الإشعارات</label>
+        <button class="modal-btn" style="margin-top:5px;" id="soundToggleBtn" onclick="toggleSound()">🔊 الصوت مفعل</button>
+      </div>
+      <button class="modal-btn" onclick="saveSettings()">💾 حفظ التعديلات</button>
+      <button class="modal-btn secondary" onclick="logout()">🚪 تسجيل الخروج</button>
+      <button class="modal-btn secondary" onclick="closeModal('settingsModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- ⚙️ Group Settings Modal -->
+  <div class="modal" id="groupSettingsModal">
+    <div class="modal-box">
+      <h3>⚙️ إدارة وإعدادات المجموعة</h3>
+      <div id="groupAdminSection" style="display: none;">
+        <div class="upload-preview">
+          <img id="groupEditImgPreview" src="">
+          <label class="file-label">
+            📸 تعديل صورة المجموعة
+            <input type="file" id="groupEditFile" accept="image/*" style="display:none;" onchange="previewImage(this, 'groupEditImgPreview')">
+          </label>
+        </div>
+        <div class="setting-item"><label>اسم المجموعة الجديد</label><input type="text" id="groupSettingsName"></div>
+        <div class="setting-item"><label>الوصف الجديد</label><input type="text" id="groupSettingsDesc"></div>
+        <button class="modal-btn" onclick="saveGroupSettings()">💾 حفظ تعديلات الجروب</button>
+        <button class="modal-btn" style="background:#00d1ff; color:#000;" onclick="openModal('addMemberToGroupModal')">➕ إضافة عضو بالـ ID</button>
+      </div>
+      <p id="groupNotAdminNotice" style="color: #888; text-align: center; display: none;">⚠️ تعديل البيانات وإضافة الأعضاء متاح للمالك والمشرفين فقط.</p>
+      <div class="member-list">
+        <h4>👥 أعضاء المجموعة:</h4>
+        <div id="groupMembersContainer"></div>
+      </div>
+      <button class="modal-btn" style="background: #ff3333; color: #fff; margin-top: 25px;" onclick="leaveCurrentGroup()">🚪 مغادرة المجموعة</button>
+      <button class="modal-btn secondary" style="margin-top:10px;" onclick="closeModal('groupSettingsModal')">إغلاق</button>
+    </div>
+  </div>
+
+  <!-- 🗑️ Delete Confirm Modal -->
+  <div class="modal delete-confirm-modal" id="deleteConfirmModal">
+    <div class="modal-box">
+      <h3>🗑️ حذف الرسالة</h3>
+      <p id="deleteConfirmText">هل تريد حذف هذه الرسالة؟</p>
+      <button class="modal-btn" style="background: #ff3333; color: #fff;" onclick="confirmDeleteMessage()">🗑️ حذف من عندي</button>
+      <button class="modal-btn" style="background: #ff0000; color: #fff; margin-top: 8px;" id="deleteForEveryoneBtn" onclick="confirmDeleteForEveryone()">🗑️ حذف من عند الجميع</button>
+      <button class="modal-btn secondary" onclick="closeModal('deleteConfirmModal')">إلغاء</button>
+    </div>
+  </div>
+
+  <!-- 🖼️ Image Preview Modal -->
+  <div class="modal image-preview-modal" id="imagePreviewModal" onclick="closeImagePreview()">
+    <div class="modal-box image-preview-box" onclick="event.stopPropagation()">
+      <img id="imagePreviewImg" src="" alt="Preview">
+      <button class="modal-btn secondary" onclick="closeImagePreview()">✕ إغلاق</button>
+    </div>
+  </div>
+
+  <!-- 📋 Context Menu -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="replyToMessage()">↩️ رد على الرسالة</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item delete" onclick="deleteMessage()">🗑️ حذف الرسالة</div>
+  </div>
+
+  <!-- 📱 Main App -->
+  <div class="app" id="app">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="user-info">
+          <img src="" class="user-avatar" id="sidebarAvatar">
+          <div class="user-details">
+            <h3 id="sidebarName">...</h3>
+            <div class="user-id" id="sidebarId">ID: 00000</div>
+          </div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" id="tab-chats" onclick="switchTab('chats')">💬 محادثات</div>
+        <div class="tab" id="tab-groups" onclick="switchTab('groups')">👥 جروبات</div>
+      </div>
+      <div class="action-buttons" id="actionButtonsArea">
+        <button class="action-btn" id="primarySidebarBtn" onclick="openModal('addFriendModal')">➕ صديق</button>
+        <button class="action-btn secondary" id="secondarySidebarBtn" onclick="openModal('createGroupModal')">👥 جروب</button>
+      </div>
+      <div class="chat-list" id="chatList"></div>
+      <button class="settings-btn" onclick="openSettings()">⚙️ الإعدادات الشَخصية</button>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area">
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState">
+        <div style="font-size: 80px;">🚀</div>
+        <p style="color:#666;">اختر صديق أو جروب لبدء الشات</p>
+      </div>
+
+      <!-- Chat Header -->
+      <div class="chat-header" id="chatHeader" style="display: none;">
+        <button class="back-btn" onclick="closeChatPage()">🔙</button>
+        <img src="" class="chat-avatar" id="activeChatAvatar">
+        <div class="chat-header-info">
+          <div class="chat-header-name" id="activeChatName">...</div>
+          <div class="chat-header-status" id="activeChatStatus" style="font-size:12px; color:#888;">...</div>
+          <div class="typing-indicator" id="typingIndicator" style="display:none;">💬 يكتب الآن...</div>
+        </div>
+        <div class="group-settings-icon" id="groupSettingsBtn" onclick="openGroupSettings()">⚙️</div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages" id="messages" style="display: none;"></div>
+
+      <!-- Reply Preview -->
+      <div class="reply-preview" id="replyPreview">
+        <div class="reply-preview-content">
+          <div class="reply-preview-author" id="replyPreviewAuthor">...</div>
+          <div class="reply-preview-text" id="replyPreviewText">...</div>
+        </div>
+        <button class="reply-preview-close" onclick="cancelReply()">✕</button>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area" id="inputArea" style="display: none;">
+        <button class="input-btn" onclick="triggerAttachment()">📎</button>
+        <input type="file" id="mediaAttachment" style="display:none;" accept="image/*,video/*" onchange="sendMediaFile(this)">
+        <button class="input-btn" id="voiceBtn" onclick="toggleVoiceRecord()">🎤</button>
+        <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا..." onkeypress="if(event.key==='Enter')sendMessage()">
+        <button class="send-btn" onclick="sendMessage()">📨</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
